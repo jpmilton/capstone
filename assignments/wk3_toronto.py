@@ -33,8 +33,6 @@ for postcode, group in grouped:
     g['Postcode'] = postcode
     g['Borough'] = group.Borough.iloc[0]
     g['Neighbourhood'] = ",".join(group['Neighbourhood'].values.tolist())
-    #print("{}:{}:{}".format(postcode, borough, neighbourhoods))
-    #print(neighbourhoods)
     ndf = ndf.append(g, ignore_index=True)
 
 print(ndf.shape)
