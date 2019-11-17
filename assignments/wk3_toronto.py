@@ -36,4 +36,59 @@ for postcode, group in grouped:
     ndf = ndf.append(g, ignore_index=True)
 
 print(ndf.shape)
+#print(ndf.head())
+
+## Part Two - read the postcodes and join
+
+ll_df = pd.read_csv("../data/Geospatial_Coordinates.csv")
+#print(ll_df.head())
+
+j = ndf.merge(ll_df,left_on='Postcode', right_on='Postal Code')
+final = j.drop('Postal Code', axis=1)
+
+print(final.head())
+
+
+## Part Three - Clustering
+
+# import k-means from clustering stage
+from sklearn.cluster import KMeans
+import folium  # map rendering library
+
+kclusters = 5
+k = final.drop(['Borough', 'Neighbourhood','Postcode'], axis=1)
+kmeans = KMeans(n_clusters=kclusters, random_state=0).fit(k)
+
+# Add the cluster as a column
+final.insert(0, 'Cluster', kmeans.labels_)
+print(final.head())
+
+# Create a map based on the centroid of the data set
+centroid = final.mean(axis=0)
+map_clusters = folium.Map(location=[centroid.Latitude, centroid.Longitude], zoom_start=11)
+
+# set color scheme for the clusters
+import numpy as np
+import matplotlib.cm as cm
+import matplotlib.colors as colors
+x = np.arange(kclusters)
+ys = [i + x + (i * x) ** 2 for i in range(kclusters)]
+colors_array = cm.rainbow(np.linspace(0, 1, len(ys)))
+rainbow = [colors.rgb2hex(i) for i in colors_array]
+
+# add markers to the map
+markers_colors = []
+for lat, lon, poi, cluster in zip(final['Latitude'], final['Longitude'],
+                                  final['Neighbourhood'], final['Cluster']):
+    label = folium.Popup(str(poi) + ' Cluster ' + str(cluster), parse_html=True)
+    folium.CircleMarker(
+        [lat, lon],
+        radius=5,
+        popup=label,
+        color=rainbow[cluster - 1],
+        fill=True,
+        fill_color=rainbow[cluster - 1],
+        fill_opacity=0.7).add_to(map_clusters)
+
+map_clusters
 
