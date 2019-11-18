@@ -71,13 +71,12 @@ map_clusters = folium.Map(location=[centroid.Latitude, centroid.Longitude], zoom
 import numpy as np
 import matplotlib.cm as cm
 import matplotlib.colors as colors
-x = np.arange(kclusters)
-ys = [i + x + (i * x) ** 2 for i in range(kclusters)]
-colors_array = cm.rainbow(np.linspace(0, 1, len(ys)))
+
+colors_array = cm.rainbow(np.linspace(0, 0.7, kclusters))
 rainbow = [colors.rgb2hex(i) for i in colors_array]
 
 # add markers to the map
-markers_colors = []
+#markers_colors = []
 for lat, lon, poi, cluster in zip(final['Latitude'], final['Longitude'],
                                   final['Neighbourhood'], final['Cluster']):
     label = folium.Popup(str(poi) + ' Cluster ' + str(cluster), parse_html=True)
