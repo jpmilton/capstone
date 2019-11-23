@@ -2,9 +2,15 @@ import os
 import re
 import requests
 import pandas as pd
+import numpy as np
 
 from geopy.geocoders import Nominatim
 from pandas.io.json import json_normalize
+from sklearn.cluster import KMeans
+
+import matplotlib.cm as cm
+import matplotlib.colors as colors
+
 import folium
 
 CLIENT_ID = "QVIXRJUFGBAPDX3SYI03ZE5NKRXHDN0RTDZPKPA2JRKJ23ZR"
@@ -36,6 +42,40 @@ def get_postcode(row):
     return postcode
 
 
+def get_venues_df(lat,lng):
+
+    # First, let's create the GET request URL. Name your URL url
+    LIMIT = 100
+    RADIUS = 2000
+    url = 'https://api.foursquare.com/v2/venues/explore?client_id={}&client_secret={}&ll={},{}&v={}&query={}&radius={}&limit={}'.format(
+        CLIENT_ID, CLIENT_SECRET, lat, lng, VERSION, 'Restaurant', RADIUS, LIMIT)
+
+    results = requests.get(url).json()
+
+    venues = results['response']['groups'][0]['items']
+
+    nearby_venues = json_normalize(venues)  # flatten JSON
+
+    filtered_columns = [
+        'referralId',
+        'venue.name',
+        'venue.categories',
+        'venue.location.lat',
+        'venue.location.lng',
+        'venue.location.postalCode'
+    ]
+
+    nearby_venues = nearby_venues.loc[:, filtered_columns]
+
+    # filter the category for each row
+    nearby_venues['venue.categories'] = nearby_venues.apply(get_category_type, axis=1)
+
+    # clean columns
+    nearby_venues.columns = [col.split(".")[-1] for col in nearby_venues.columns]
+
+    return nearby_venues
+
+
 # Get the Longitude and Latitude of Brick Lane
 address = 'Brick Lane, London, UK'
 geolocator = Nominatim(user_agent="foursquare_agent")
@@ -44,69 +84,64 @@ latitude = location.latitude
 longitude = location.longitude
 print(latitude, longitude)
 
-# First, let's create the GET request URL. Name your URL url
-LIMIT = 100
-RADIUS = 2000
-url = 'https://api.foursquare.com/v2/venues/explore?client_id={}&client_secret={}&ll={},{}&v={}&query={}&radius={}&limit={}'.format(
-    CLIENT_ID, CLIENT_SECRET, latitude, longitude, VERSION, 'Restaurant', RADIUS, LIMIT)
-print(url)
-results = requests.get(url).json()
+brick_lane = get_venues_df(latitude,longitude)
 
-venues = results['response']['groups'][0]['items']
 
-nearby_venues = json_normalize(venues)  # flatten JSON
+# Expand the data
+bl_max = brick_lane.max(axis=0, numeric_only=True)
+bl_min = brick_lane.min(axis=0, numeric_only=True)
+ds0 = get_venues_df(bl_max.lat, bl_max.lng)
+ds1 = get_venues_df(bl_max.lat, bl_min.lng)
+ds2 = get_venues_df(bl_min.lat, bl_min.lng)
+ds3 = get_venues_df(bl_min.lat, bl_max.lng)
 
-filtered_columns = [
-    'venue.name',
-    'venue.categories',
-    'venue.location.lat',
-    'venue.location.lng',
-    'venue.location.postalCode'
-]
-
-nearby_venues = nearby_venues.loc[:, filtered_columns]
-
-# filter the category for each row
-nearby_venues['venue.categories'] = nearby_venues.apply(get_category_type, axis=1)
-
-# clean columns
-nearby_venues.columns = [col.split(".")[-1] for col in nearby_venues.columns]
-
-print(nearby_venues.head())
-print('{} venues were returned by Foursquare.'.format(nearby_venues.shape[0]))
+frames = [ brick_lane, ds0, ds1, ds2, ds3]
+all = pd.concat(frames).drop_duplicates().reset_index(drop=True)
+print('{} unique venues in combined dataset.'.format(all.shape[0]))
 
 # Analyse the categories
-# cat = {}
-# groups = nearby_venues.groupby('categories')
-# for g in groups:
-#     cat[g[0]] = g[1].shape[0]
-#
-# for c in cat.keys():
-#     print(c)
+cat = {}
+groups = all.groupby('categories')
+for g in groups:
+    cat[g[0]] = g[1].shape[0]
+
+for c in cat.keys():
+    print(c, cat[c])
 
 # Categories we are interested in
-cuisine = {
-    'BBQ Joint': 1,
-    'Beer Bar': 1,
-    'Breakfast Spot': 1,
-    'Café': 1,
-    'Coffee Shop': 1,
-    'English Restaurant': 1,
-    'Falafel Restaurant': 1,
-    'Indian Restaurant': 1,
-    'Italian Restaurant': 1,
-    'Mediterranean Restaurant': 1,
-    'Modern European Restaurant': 1,
-    'Pizza Place': 1,
-    'Portuguese Restaurant': 1,
-    'Pub': 1,
-    'Restaurant': 1,
-    'Seafood Restaurant': 1,
-    'Steakhouse': 1,
-    'Street Food Gathering': 1,
-    'Sushi Restaurant': 1,
-    'Vietnamese Restaurant': 1,
-}
 
-filtered = nearby_venues.loc[nearby_venues['categories'].isin(cuisine.keys())]
-print(filtered.shape)
+bl_onehot = pd.get_dummies(all[['categories']], prefix="", prefix_sep="")
+all_plus = pd.concat([all,bl_onehot], axis=1)
+g2 = all_plus.groupby('postalCode').mean().reset_index()
+
+
+g3 = g2.drop('postalCode', 1)
+
+kclusters = 5
+kmeans = KMeans(n_clusters=kclusters, random_state=0).fit(g3)
+
+g2.insert(0, 'Cluster Labels', kmeans.labels_)
+
+# create map
+map_clusters = folium.Map(location=[latitude, longitude], zoom_start=11)
+
+# set color scheme for the clusters
+x = np.arange(kclusters)
+ys = [i + x + (i * x) ** 2 for i in range(kclusters)]
+colors_array = cm.rainbow(np.linspace(0, 1, len(ys)))
+rainbow = [colors.rgb2hex(i) for i in colors_array]
+
+# add markers to the map
+markers_colors = []
+for lat, lon, cluster in zip(g2['lat'], g2['lng'], g2['Cluster Labels']):
+    label = folium.Popup(' Cluster ' + str(cluster), parse_html=True)
+    folium.CircleMarker(
+        [lat, lon],
+        radius=5,
+        popup=label,
+        color=rainbow[cluster - 1],
+        fill=True,
+        fill_color=rainbow[cluster - 1],
+        fill_opacity=0.7).add_to(map_clusters)
+
+map_clusters
