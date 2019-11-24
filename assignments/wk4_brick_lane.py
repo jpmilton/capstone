@@ -42,13 +42,12 @@ def get_postcode(row):
     return postcode
 
 
-def get_venues_df(lat,lng):
-
+def get_venues_df(lat, lng):
     # First, let's create the GET request URL. Name your URL url
     LIMIT = 100
     RADIUS = 2000
     url = 'https://api.foursquare.com/v2/venues/explore?client_id={}&client_secret={}&ll={},{}&v={}&query={}&radius={}&limit={}'.format(
-        CLIENT_ID, CLIENT_SECRET, lat, lng, VERSION, 'Restaurant', RADIUS, LIMIT)
+        CLIENT_ID, CLIENT_SECRET, lat, lng, VERSION, 'Indian', RADIUS, LIMIT)
 
     results = requests.get(url).json()
 
@@ -57,7 +56,7 @@ def get_venues_df(lat,lng):
     nearby_venues = json_normalize(venues)  # flatten JSON
 
     filtered_columns = [
-        'referralId',
+        'venue.id',
         'venue.name',
         'venue.categories',
         'venue.location.lat',
@@ -76,6 +75,30 @@ def get_venues_df(lat,lng):
     return nearby_venues
 
 
+def get_venue_rating(id):
+    url = 'https://api.foursquare.com/v2/venues/{}?client_id={}&client_secret={}&v={}'.format(id, CLIENT_ID,
+                                                                                              CLIENT_SECRET, VERSION)
+    results = requests.get(url).json()
+    return results['response']['venue']['rating']
+
+
+def get_venue_ratings(ids):
+    ratings = []
+    for id in ids:
+        url = 'https://api.foursquare.com/v2/venues/{}?client_id={}&client_secret={}&v={}'.format(id, CLIENT_ID,
+                                                                                                  CLIENT_SECRET,
+                                                                                                  VERSION)
+        results = requests.get(url).json()
+        try:
+            rating = results['response']['venue']['rating']
+        except:
+            print("{} not rated".format(id))
+            rating = None
+        ratings.append(rating)
+
+    return ratings
+
+
 # Get the Longitude and Latitude of Brick Lane
 address = 'Brick Lane, London, UK'
 geolocator = Nominatim(user_agent="foursquare_agent")
@@ -84,42 +107,54 @@ latitude = location.latitude
 longitude = location.longitude
 print(latitude, longitude)
 
-brick_lane = get_venues_df(latitude,longitude)
-
+brick_lane = get_venues_df(latitude, longitude)
 
 # Expand the data
-bl_max = brick_lane.max(axis=0, numeric_only=True)
-bl_min = brick_lane.min(axis=0, numeric_only=True)
-ds0 = get_venues_df(bl_max.lat, bl_max.lng)
-ds1 = get_venues_df(bl_max.lat, bl_min.lng)
-ds2 = get_venues_df(bl_min.lat, bl_min.lng)
-ds3 = get_venues_df(bl_min.lat, bl_max.lng)
+# bl_max = brick_lane.max(axis=0, numeric_only=True)
+# bl_min = brick_lane.min(axis=0, numeric_only=True)
+# ds0 = get_venues_df(bl_max.lat, bl_max.lng)
+# ds1 = get_venues_df(bl_max.lat, bl_min.lng)
+# ds2 = get_venues_df(bl_min.lat, bl_min.lng)
+# ds3 = get_venues_df(bl_min.lat, bl_max.lng)
 
-frames = [ brick_lane, ds0, ds1, ds2, ds3]
-all = pd.concat(frames).drop_duplicates().reset_index(drop=True)
-print('{} unique venues in combined dataset.'.format(all.shape[0]))
+# frames = [brick_lane, ds0, ds1, ds2, ds3]
+# all_indian = pd.concat(frames).drop_duplicates().reset_index(drop=True)
+all_indian = brick_lane
+# Ensure correct categories
+all_indian = all_indian[all_indian.categories == 'Indian Restaurant']
+print('{} unique venues in combined dataset.'.format(all_indian.shape[0]))
 
-# Analyse the categories
-cat = {}
-groups = all.groupby('categories')
-for g in groups:
-    cat[g[0]] = g[1].shape[0]
+# Obtain Rating
+# ratings = []
+gunpowdr = all_indian.iloc[1]['id']
+# all_indian[all_indian.name == 'Gunpowder'
+print( get_venue_rating(gunpowdr))
+# print("{}".format(gunpowdr))
+ids = all_indian['id'].values
+ratings = get_venue_ratings(ids)
+print(ratings)
 
-for c in cat.keys():
-    print(c, cat[c])
+# # Analyse the categories
+# cat = {}
+# groups = all.groupby('categories')
+# for g in groups:
+#     cat[g[0]] = g[1].shape[0]
+#
+# for c in cat.keys():
+#     print(c, cat[c])
+#
+# # Categories we are interested in
+#
+# bl_onehot = pd.get_dummies(all[['categories']], prefix="", prefix_sep="")
+# all_plus = pd.concat([all,bl_onehot], axis=1)
+# g2 = all_plus.groupby('postalCode').mean().reset_index()
+#
 
-# Categories we are interested in
-
-bl_onehot = pd.get_dummies(all[['categories']], prefix="", prefix_sep="")
-all_plus = pd.concat([all,bl_onehot], axis=1)
-g2 = all_plus.groupby('postalCode').mean().reset_index()
-
-
-g3 = g2.drop('postalCode', 1)
+g3 = all_indian.drop(['postalCode', 'name', 'categories', 'id'], 1)
 
 kclusters = 5
 kmeans = KMeans(n_clusters=kclusters, random_state=0).fit(g3)
-
+g2 = all_indian
 g2.insert(0, 'Cluster Labels', kmeans.labels_)
 
 # create map
