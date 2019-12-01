@@ -12,7 +12,7 @@ from pandas.io.json import json_normalize
 import folium
 
 CLIENT_ID = "QVIXRJUFGBAPDX3SYI03ZE5NKRXHDN0RTDZPKPA2JRKJ23ZR"
-CLIENT_SECRET = "XLLUIOXL42E5XG2X5PWOOM4POWBIG1OWI5SQJIKASKYWODMW"  # what
+CLIENT_SECRET = "XLLUIOXL42E5XG2X5PWOOM4POWBIG1OWI5SQJIKASKYWODM"  # what
 VERSION = "20180604"
 LIMIT = 5
 
@@ -128,51 +128,40 @@ print(latitude, longitude)
 # ds3 = get_venues_df(bl_min.lat, bl_max.lng)
 #
 # frames = [brick_lane, ds0, ds1, ds2, ds3]
-#
-# for d in frames:
-#     print(d.shape)
-#
 # all_indian = pd.concat(frames).drop_duplicates().reset_index(drop=True)
 # # Ensure correct categories
 # all_indian = all_indian[all_indian.categories == 'Indian Restaurant']
+# print('{} unique venues in combined dataset.'.format(all_indian.shape[0]))
 
-#all_indian = pd.read_csv("../data/brick_lane.csv")
-all_indian = pd.read_csv("../data/ratings.csv")
+update_ratings = False
 
-print('{} unique venues in combined dataset.'.format(all_indian.shape[0]))
+if update_ratings:
+    #all_indian = pd.read_csv("../data/brick_lane.csv")
+    all_indian = pd.read_csv("../data/ratings.csv", index_col=0)
 
-# Add column 'ratings' and populate with None
-#ratings = [None] * all_indian.shape[0]
-#all_indian = all_indian.assign(rating = ratings)
+    print('{} unique venues in combined dataset.'.format(all_indian.shape[0]))
 
-
-#ids = all_indian[all_indian.rating == 'None']['id'].values
-# ratings = get_venue_ratings(ids)
-ids = all_indian['id'].values
-rts = all_indian['rating'].values
-
-for id,rating in zip(ids,rts):
-    if rating<0:
-        print("Fetch {},{}".format(id,rating))
-        try:
-            r = get_venue_rating(id)
-        except ValueError as err:
-            print(err.args)
-            r = -2
-
-        all_indian.loc[all_indian.id==id,'rating'] = r
+    # Add column 'ratings' and populate with None
+    #ratings = [None] * all_indian.shape[0]
+    #all_indian = all_indian.assign(rating = ratings)
 
 
-# Save updated dataframe
-all_indian.to_csv("../data/ratings.csv")
+    #ids = all_indian[all_indian.rating == 'None']['id'].values
+    # ratings = get_venue_ratings(ids)
+    ids = all_indian['id'].values
+    rts = all_indian['rating'].values
 
-# Obtain Rating
-# ratings = []
-#gunpowdr = all_indian.iloc[1]['id']
-# # all_indian[all_indian.name == 'Gunpowder'
-#print( get_venue_rating(gunpowdr))
-# # print("{}".format(gunpowdr))
-# ids = all_indian['id'].values
-# ratings = get_venue_ratings(ids)
-# print(ratings)
+    for id,rating in zip(ids,rts):
+        if rating<0:
+            print("Fetch {},{}".format(id,rating))
+            try:
+                r = get_venue_rating(id)
+            except ValueError as err:
+                print(err.args)
+                r = -2
 
+            all_indian.loc[all_indian.id==id,'rating'] = r
+
+
+    # Save updated dataframe
+    all_indian.to_csv("../data/ratings.csv")

@@ -1,3 +1,5 @@
+import os
+
 import numpy as np  # library to handle data in a vectorized manner
 
 import pandas as pd  # library for data analsysis
@@ -126,7 +128,7 @@ map_manhattan
 # Next, we are going to start utilizing the Foursquare API to explore the neighborhoods and segment them.
 
 CLIENT_ID = "QVIXRJUFGBAPDX3SYI03ZE5NKRXHDN0RTDZPKPA2JRKJ23ZR"
-CLIENT_SECRET = "XLLUIOXL42E5XG2X5PWOOM4POWBIG1OWI5SQJIKASKYWODMW"  # what
+CLIENT_SECRET = "XLLUIOXL42E5XG2X5PWOOM4POWBIG1OWI5SQJIKASKYWODM"  # what
 VERSION = "20180604"
 LIMIT = 30
 
@@ -245,6 +247,7 @@ print(manhattan_venues.groupby('Neighborhood').count())
 
 #### Let's find out how many unique categories can be curated from all the returned venues
 print('There are {} uniques categories.'.format(len(manhattan_venues['Venue Category'].unique())))
+os.sys.exit(0)
 
 ## 3. Analyze Each Neighborhood
 # one hot encoding

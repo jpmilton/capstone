@@ -3,6 +3,7 @@ import re
 import requests
 import pandas as pd
 import numpy as np
+import math
 
 from geopy.geocoders import Nominatim
 from pandas.io.json import json_normalize
@@ -10,15 +11,14 @@ from sklearn.cluster import KMeans
 
 import matplotlib.cm as cm
 import matplotlib.colors as colors
+import matplotlib.pyplot as plt  # plotting library
 
 import folium
 
 CLIENT_ID = "QVIXRJUFGBAPDX3SYI03ZE5NKRXHDN0RTDZPKPA2JRKJ23ZR"
-CLIENT_SECRET = "XLLUIOXL42E5XG2X5PWOOM4POWBIG1OWI5SQJIKASKYWODMW"  # what
+CLIENT_SECRET = "XLLUIOXL42E5XG2X5PWOOM4POWBIG1OWI5SQJIKASKYWODM"  # what
 VERSION = "20180604"
 LIMIT = 5
-
-re_postcode = re.compile("\w+\d+\s+\d+\w+")
 
 
 def get_category_type(row):
@@ -32,14 +32,16 @@ def get_category_type(row):
     else:
         return categories_list[0]['name']
 
+def calc_distance(lat1,lon1,lat2,lon2):
+  earth = 6371 # Radius of the earth in km
+  dLat = math.radians(lat2-lat1)
+  dLon = math.radians(lon2-lon1)
+  a = math.sin(dLat/2) * math.sin(dLat/2) +math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) *math.sin(dLon/2) * math.sin(dLon/2)
 
-def get_postcode(row):
-    formatted_address = row['venue.location.formattedAddress']
-    postcode = None
-    for line in formatted_address:
-        if re_postcode.search(line):
-            postcode = line
-    return postcode
+  c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a));
+  d = 1000* earth * c  #Distance in m
+
+  return d
 
 
 def get_venues_df(lat, lng):
@@ -75,30 +77,6 @@ def get_venues_df(lat, lng):
     return nearby_venues
 
 
-def get_venue_rating(id):
-    url = 'https://api.foursquare.com/v2/venues/{}?client_id={}&client_secret={}&v={}'.format(id, CLIENT_ID,
-                                                                                              CLIENT_SECRET, VERSION)
-    results = requests.get(url).json()
-    return results['response']['venue']['rating']
-
-
-def get_venue_ratings(ids):
-    ratings = []
-    for id in ids:
-        url = 'https://api.foursquare.com/v2/venues/{}?client_id={}&client_secret={}&v={}'.format(id, CLIENT_ID,
-                                                                                                  CLIENT_SECRET,
-                                                                                                  VERSION)
-        results = requests.get(url).json()
-        try:
-            rating = results['response']['venue']['rating']
-        except:
-            print("{} not rated".format(id))
-            rating = None
-        ratings.append(rating)
-
-    return ratings
-
-
 # Get the Longitude and Latitude of Brick Lane
 address = 'Brick Lane, London, UK'
 geolocator = Nominatim(user_agent="foursquare_agent")
@@ -107,48 +85,29 @@ latitude = location.latitude
 longitude = location.longitude
 print(latitude, longitude)
 
-brick_lane = get_venues_df(latitude, longitude)
+# Approximate conversion of lng/lat to metres
+# http://en.wikipedia.org/wiki/Lat-lon
+km_per_deg_lat = (111132.92 - 559.82 * math.cos( 2 * latitude ) + 1.175 * math.cos( 4 * latitude))/1000
+km_per_deg_lon = (111412.84 * math.cos ( latitude ) - 93.5 * math.cos( 3 * latitude ))/1000
 
-# Expand the data
-# bl_max = brick_lane.max(axis=0, numeric_only=True)
-# bl_min = brick_lane.min(axis=0, numeric_only=True)
-# ds0 = get_venues_df(bl_max.lat, bl_max.lng)
-# ds1 = get_venues_df(bl_max.lat, bl_min.lng)
-# ds2 = get_venues_df(bl_min.lat, bl_min.lng)
-# ds3 = get_venues_df(bl_min.lat, bl_max.lng)
+#brick_lane = get_venues_df(latitude, longitude)
 
-# frames = [brick_lane, ds0, ds1, ds2, ds3]
-# all_indian = pd.concat(frames).drop_duplicates().reset_index(drop=True)
-all_indian = brick_lane
-# Ensure correct categories
-all_indian = all_indian[all_indian.categories == 'Indian Restaurant']
+all_indian = pd.read_csv("../data/ratings.csv", index_col=0)
 print('{} unique venues in combined dataset.'.format(all_indian.shape[0]))
 
-# Obtain Rating
-# ratings = []
-gunpowdr = all_indian.iloc[1]['id']
-# all_indian[all_indian.name == 'Gunpowder'
-print( get_venue_rating(gunpowdr))
-# print("{}".format(gunpowdr))
-ids = all_indian['id'].values
-ratings = get_venue_ratings(ids)
-print(ratings)
+# Calculate distance from each venue to brick lane lat,lng as a new column
+all_indian = all_indian.assign(dist=np.sqrt((km_per_deg_lat*(all_indian.lat-latitude))**2 + (km_per_deg_lon*(all_indian.lng-longitude))**2))
 
-# # Analyse the categories
-# cat = {}
-# groups = all.groupby('categories')
-# for g in groups:
-#     cat[g[0]] = g[1].shape[0]
-#
-# for c in cat.keys():
-#     print(c, cat[c])
-#
-# # Categories we are interested in
-#
-# bl_onehot = pd.get_dummies(all[['categories']], prefix="", prefix_sep="")
-# all_plus = pd.concat([all,bl_onehot], axis=1)
-# g2 = all_plus.groupby('postalCode').mean().reset_index()
-#
+# Histogram
+hist_dist = all_indian.hist(column='dist', bins=20)
+plt.show()
+
+scatter_rating_dist = all_indian.plot.scatter('dist','rating')
+plt.show()
+
+all_indian.drop(['postalCode', 'name', 'categories', 'id'], 1)
+
+
 
 g3 = all_indian.drop(['postalCode', 'name', 'categories', 'id'], 1)
 
