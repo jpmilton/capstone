@@ -85,9 +85,10 @@ def get_venue_rating(id):
         if results['meta']['code'] == 429:
             raise ValueError("Foursquare quota exceed")
             #os.sys.exit()
+            rt = None
         else:
-            raise ValueError("{} not rated".format(id))
-        rt = None
+            #raise ValueError("{} not rated".format(id))
+            rt = -3
 
     return rt
 
@@ -133,7 +134,7 @@ print(latitude, longitude)
 # all_indian = all_indian[all_indian.categories == 'Indian Restaurant']
 # print('{} unique venues in combined dataset.'.format(all_indian.shape[0]))
 
-update_ratings = False
+update_ratings = True
 
 if update_ratings:
     #all_indian = pd.read_csv("../data/brick_lane.csv")
@@ -143,6 +144,7 @@ if update_ratings:
 
     # Add column 'ratings' and populate with None
     #ratings = [None] * all_indian.shape[0]
+
     #all_indian = all_indian.assign(rating = ratings)
 
 
@@ -152,7 +154,7 @@ if update_ratings:
     rts = all_indian['rating'].values
 
     for id,rating in zip(ids,rts):
-        if rating<0:
+        if rating==-2:
             print("Fetch {},{}".format(id,rating))
             try:
                 r = get_venue_rating(id)
