@@ -77,6 +77,9 @@ def get_venues_df(lat, lng):
     return nearby_venues
 
 
+
+
+
 # Get the Longitude and Latitude of Brick Lane
 address = 'Brick Lane, London, UK'
 geolocator = Nominatim(user_agent="foursquare_agent")
@@ -84,6 +87,8 @@ location = geolocator.geocode(address)
 latitude = location.latitude
 longitude = location.longitude
 print(latitude, longitude)
+
+
 
 # Approximate conversion of lng/lat to metres
 # http://en.wikipedia.org/wiki/Lat-lon

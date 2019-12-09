@@ -12,11 +12,12 @@ from pandas.io.json import json_normalize
 import folium
 
 CLIENT_ID = "QVIXRJUFGBAPDX3SYI03ZE5NKRXHDN0RTDZPKPA2JRKJ23ZR"
-CLIENT_SECRET = "XLLUIOXL42E5XG2X5PWOOM4POWBIG1OWI5SQJIKASKYWODM"  # what
+CLIENT_SECRET = "XLLUIOXL42E5XG2X5PWOOM4POWBIG1OWI5SQJIKASKYWODMW"  # what
 VERSION = "20180604"
 LIMIT = 5
 
-re_postcode = re.compile("\w+\d+\s+\d+\w+")
+re_postcode = re.compile("\w+\d+\s+\d+\w+")150,536561cf498ef8322d9bacb9,Spice Indian Restaurant,Indian Restaurant,51.50185776787277,-0.02350906929714024,,-3.0
+
 
 
 def get_category_type(row):
